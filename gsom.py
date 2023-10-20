@@ -57,7 +57,43 @@ class Neurons:
         return new_delta
     
     def growNode(self, p):
-        self.weights = np.append(self.weights, p)
+        np.append(self.weights, p)
+
+def find_bmus(trained_weights, data):
+    """
+    Find Best-Matching Units (BMUs) for each data point in the dataset.
+
+    Parameters:
+    - trained_weights (numpy.ndarray): The trained weights of the Self-Organizing Map.
+    - data (numpy.ndarray): The dataset for which to find BMUs.
+
+    Returns:
+    - bmu_indices (numpy.ndarray): An array containing the BMU indices for each data point.
+    """
+
+    # Check if the dimensions of the trained_weights and data are compatible
+    if trained_weights.shape[-1] != data.shape[-1]:
+        raise ValueError("The last dimension of trained_weights and data must match.")
+
+    # Reshape the trained_weights array to a 2D array where each row corresponds to a neuron
+    trained_weights_2d = trained_weights.reshape(-1, trained_weights.shape[-1])
+
+    # Initialize an array to store BMU indices for each data point
+    bmu_indices = np.zeros((data.shape[0],), dtype=int)
+
+    # Iterate over each data point in the dataset
+    for i, data_point in enumerate(data):
+        # Calculate the Euclidean distance between the data point and all neurons
+        # in the trained_weights_2d array
+        distances = np.linalg.norm(trained_weights_2d - data_point, axis=1)
+
+        # Find the index of the neuron with the minimum distance (the BMU)
+        bmu_index = np.argmin(distances)
+
+        # Store the BMU index for this data point
+        bmu_indices[i] = bmu_index
+
+    return bmu_indices
 
 if __name__ == '__main__':
 
@@ -109,21 +145,23 @@ if __name__ == '__main__':
             if error >= GT:
                 neurons.growNode(p)
             neurons.iteration += 1
-
+            
+    
     # Algorithm 2 Smoothing
-    neurons.radius = neighborhood_radius * 2
-    for i in range(50):
-        for p in geo_data:
-            winner, error = FindWinner(neurons.weights, p)
-            neurons.adaptWeights(winner, p)
+    # neurons.radius = neighborhood_radius * 2
+    # for i in range(50):
+    #     for p in geo_data:
+    #         winner, error = FindWinner(neurons.weights, p)
+    #         neurons.adaptWeights(winner, p)
 
-    neurons.radius = neighborhood_radius * 0.5
-    for i in range(50):
-        for p in geo_data:
-            winner, error = FindWinner(neurons.weights, p)
-            neurons.adaptWeights(winner, p)
+    # neurons.radius = neighborhood_radius * 0.5
+    # for i in range(50):
+    #     for p in geo_data:
+    #         winner, error = FindWinner(neurons.weights, p)
+    #         neurons.adaptWeights(winner, p)
 
-    print(neurons.weights)
+    clusters = find_bmus(neurons.weights, geo_data)
+    # print(clusters)
     # # Everything below here is for visualization
 
     # # Fit algorithm to the data
@@ -140,3 +178,33 @@ if __name__ == '__main__':
     # # Visualization
     # plt.scatter(x, y, c=predictions, cmap=ListedColormap(colors))
     # plt.show()
+    latitude = neurons.weights[:, :, 0]
+    longitude = neurons.weights[:, :, 1]
+
+    
+
+    # Create subplots for latitude and longitude
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
+
+    # Create a heatmap for latitude
+    ax1.imshow(latitude, cmap='viridis')
+    ax1.set_title('Latitude')
+    ax1.set_xlabel('Longitude')
+    ax1.set_ylabel('Latitude')
+    ax1.set_xticks([])
+    ax1.set_yticks([])
+
+    # Create a heatmap for longitude
+    ax2.imshow(longitude, cmap='viridis')
+    ax2.set_title('Longitude')
+    ax2.set_xlabel('Longitude')
+    ax2.set_ylabel('Latitude')
+    ax2.set_xticks([])
+    ax2.set_yticks([])
+
+    # Add color bars
+    cbar1 = plt.colorbar(ax1.imshow(latitude, cmap='viridis'), ax=ax1)
+    cbar2 = plt.colorbar(ax2.imshow(longitude, cmap='viridis'), ax=ax2)
+
+    plt.tight_layout()
+    plt.show()
