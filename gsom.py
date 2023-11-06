@@ -8,9 +8,20 @@ the output).
 @author: Riley Smith
 Created: 2-1-2021
 """
+import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap
+from sklearn_som.som import SOM
+from sklearn import datasets
 import pandas as pd
 import numpy as np
 import math
+import copy
+
+# Spread factor
+sf = 1
+
+# Growth threshold
+GT = -2 * math.log(sf)
 
 # In terms of implementation, what is the best way to represent a neighborhood of nodes
 class Neurons:
@@ -21,6 +32,7 @@ class Neurons:
         self.lr = lr
         self.weights = np.random.rand(size, size, features)
         self.iteration = 0
+        self.delta = 0
     
     """
     Params:
@@ -30,47 +42,36 @@ class Neurons:
     def adaptWeights(self, winner, p):
         # Calculate the distance between each neuron and the winning neuron
         distances = self.weights - p
-
+        old_weights = copy.deepcopy(self.weights)
+        
         # Find the neurons within the specified radius
-        neighborhood = []
-        for row_idx in range(self.size):
-            for col_idx in range(self.size):
-                cur_neuron = self.weights[row_idx][col_idx]
-                distance = np.linalg.norm(winner - cur_neuron)
-                if distance <= self.radius:
-                    neighborhood.append((row_idx, col_idx))
-
         learning_factor = (self.iteration + 1) / self.count
         self.lr = math.pow(0.02, learning_factor)
 
         # Update the weights of neurons within the radius
-        new_delta = 0
-        for row_idx, col_idx in neighborhood:
-            delta = self.lr * distances[row_idx][col_idx]
-            self.weights[row_idx][col_idx] += delta
-            new_delta += np.sum(np.abs(delta))
+        for row_idx in range(len(self.weights)):
+            for col_idx in range(len(self.weights[0])):
+                cur_neuron = self.weights[row_idx][col_idx]
+                distance = np.linalg.norm(winner - cur_neuron)
+                if distance <= self.radius:
+                    cur_delta = self.lr * distances[row_idx][col_idx]
+                    self.weights[row_idx][col_idx] += cur_delta
 
-        print(new_delta)
-        return new_delta
-
-
+        weights_diff = old_weights - self.weights
+        # print("old_weights", old_weights)
+        # print("self.weights", self.weights)
+        # print(self.weights[0][1], old_weights[0][1])
+        delta = sum(sum(sum(weights_diff)))
+        if sum(self.weights[0][1]) != sum(old_weights[0][1]):
+            print("True")
+        # print(delta)
+        # return sum(sum(sum(weights_diff)))
+        return delta
     
-    #np.appened doesn't allow you to appened to the exisiting array, it creates a new one with the appeneded values. 
-    #resaaigning self.weights takes care of this since it will just update the existing attributes
     def growNode(self, p):
-        self.weights = np.append(self.weights, [p])
+        np.append(self.weights, p)
 
 def find_bmus(trained_weights, data):
-    """
-    Find Best-Matching Units (BMUs) for each data point in the dataset.
-
-    Parameters:
-    - trained_weights (numpy.ndarray): The trained weights of the Self-Organizing Map.
-    - data (numpy.ndarray): The dataset for which to find BMUs.
-
-    Returns:
-    - bmu_indices (numpy.ndarray): An array containing the BMU indices for each data point.
-    """
 
     # Check if the dimensions of the trained_weights and data are compatible
     if trained_weights.shape[-1] != data.shape[-1]:
@@ -96,6 +97,36 @@ def find_bmus(trained_weights, data):
 
     return bmu_indices
 
+def visualize(data):
+    latitude = data[:, :, 0]
+    longitude = data[:, :, 1]
+
+    # Create subplots for latitude and longitude
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
+
+    # Create a heatmap for latitude
+    ax1.imshow(latitude, cmap='viridis')
+    ax1.set_title('Latitude')
+    ax1.set_xlabel('Longitude')
+    ax1.set_ylabel('Latitude')
+    ax1.set_xticks([])
+    ax1.set_yticks([])
+
+    # Create a heatmap for longitude
+    ax2.imshow(longitude, cmap='viridis')
+    ax2.set_title('Longitude')
+    ax2.set_xlabel('Longitude')
+    ax2.set_ylabel('Latitude')
+    ax2.set_xticks([])
+    ax2.set_yticks([])
+
+    # Add color bars
+    cbar1 = plt.colorbar(ax1.imshow(latitude, cmap='viridis'), ax=ax1)
+    cbar2 = plt.colorbar(ax2.imshow(longitude, cmap='viridis'), ax=ax2)
+
+    plt.tight_layout()
+    plt.show()
+
 if __name__ == '__main__':
 
     # Import data into Pandas DataFrame
@@ -108,11 +139,7 @@ if __name__ == '__main__':
     learning_rate = 0.02
     neurons = Neurons(neuron_size, features, neighborhood_radius, learning_rate)
 
-    # Spread factor
-    sf = 1
-
-    # Growth threshold
-    GT = -2 * math.log(sf)
+    
 
     def FindWinner(neurons, p):
         # Convert the dataset element 'd' into a NumPy array for easy computation
@@ -134,22 +161,40 @@ if __name__ == '__main__':
         
         return winning_neuron, min_error
 
-# Algorithm 1 Learn and Grow
-tolerance = 0.5
+    # Algorithm 1 Learn and Grow
+    weights_delta = float('inf')
+    tolerance = 0.5
 
-while True:  # Change to an infinite loop
-    weights_delta = 0  # Initialize weights_delta for each iteration
-    for p in geo_data:
-        winner, error = FindWinner(neurons.weights, p)
-        weights_delta += neurons.adaptWeights(winner, p)  # Accumulate weights_delta
-        if error >= GT:
-            neurons.growNode(p)
-        neurons.iteration += 1
-
-    # Check if the accumulated weights_delta is less than the tolerance
-    if weights_delta < tolerance:
-        break  # Exit the loop if the accumulated delta is less than the tolerance
-
-
-
+    while weights_delta > tolerance:
+        weights_delta = 0
+        for p in geo_data:
+            winner, error = FindWinner(neurons.weights, p)
+            weights_delta = neurons.adaptWeights(winner, p)
+            if error >= GT:
+                neurons.growNode(p)
+            neurons.iteration += 1
             
+    
+    # Algorithm 2 Smoothing
+    neurons.radius = neighborhood_radius * 2
+    for i in range(50):
+        for p in geo_data:
+            winner, error = FindWinner(neurons.weights, p)
+            neurons.adaptWeights(winner, p)
+
+    neurons.radius = neighborhood_radius * 0.5
+    for i in range(50):
+        for p in geo_data:
+            winner, error = FindWinner(neurons.weights, p)
+            neurons.adaptWeights(winner, p)
+
+    clusters = find_bmus(neurons.weights, geo_data)
+    # predictions = som.predict(geo_data)
+    # Plot the results
+    x = geo_data[:,0]
+    y = geo_data[:,1]
+    colors = ['red', 'green', 'blue']
+
+    plt.scatter(x, y, c=clusters, cmap=ListedColormap(colors))
+    plt.show()
+    visualize(neurons.weights)
