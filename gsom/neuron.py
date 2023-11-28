@@ -3,12 +3,13 @@ import numpy as np
 
 # In terms of implementation, what is the best way to represent a neighborhood of nodes
 class Neurons:
-    def __init__(self, size, features, radius, lr):
+    def __init__(self, size, features, radius, lr, min_values, max_values):
         self.size = size
         self.count = size * size
         self.radius = radius
         self.lr = lr
-        self.weights = np.random.rand(size, size, features)
+        random_weights = np.random.rand(size, size, features)
+        self.weights = (max_values - min_values) * random_weights + min_values
         self.iteration = 0
     
     """

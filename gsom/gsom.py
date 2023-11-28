@@ -88,6 +88,17 @@ def find_bmus(trained_weights, data):
 
     return bmu_indices
 
+# Parses the CSV file and finds min and max values
+def find_min_max_values(geo_data):
+
+    # Finds min and max values for each column
+    minValues = np.min(geo_data, axis=0)
+    
+
+    maxValues = np.max(geo_data, axis=0)
+
+    return minValues, maxValues
+
 
 if __name__ == '__main__':
 
@@ -95,11 +106,14 @@ if __name__ == '__main__':
     geo_data = pd.read_csv("mostTraversedLatLong.csv", usecols = ['Lat', 'Long'])
     geo_data = np.array(geo_data)
 
+    
+
     neuron_size = 10
     features = 2
     neighborhood_radius = 5
     learning_rate = 0.02
-    neurons = Neurons(neuron_size, features, neighborhood_radius, learning_rate)
+    min_array, max_array = find_min_max_values(geo_data)
+    neurons = Neurons(neuron_size, features, neighborhood_radius, learning_rate, min_array, max_array)
 
     
 
@@ -165,32 +179,8 @@ if __name__ == '__main__':
     # plt.show()
     # visualize(neurons.weights)
 
-    # Initializes the weights of the neurons and checks to make sure they fall within the range of given values
-    def initialize_weights(min_values, max_values, num_neurons):
-        if len(min_values) != len(max_values):
-            raise ValueError("min_values and max_values must have the same length.")
-        
-        # Create a random matrix with values between 0 and 1
-        random_weights = np.random.rand(num_neurons, len(min_values))
-
-        # Scales the random matric to the desired range for each coordinate
-        initialize_weights = (max_values - min_values) * random_weights + min_values
-
-        return initialize_weights
-
-    # Parses the CSV file and finds min and max values
-    def find_min_max_values(geo_data):
-        df = pd.read_csv(geo_data)
-
-        # Finds min and max values for each column
-        minValues = df.min().values
-        maxValues = df.max().values
-
-        return minValues, maxValues
-
+    
     #clusters = find_bmus(neurons.weights, geo_data)
-
-    minMax = find_min_max_values(geo_data)
-    initialized_weights = initialize_weights(minMax, neurons.size)
-    clusters = find_bmus(initialize_weights, geo_data)
+    
+    clusters = find_bmus(neurons.weights, geo_data)
     print(clusters)
